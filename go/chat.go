@@ -91,7 +91,7 @@ func main() {
 	if *help {
 		fmt.Println("This program demonstrates a simple p2p chat application using libp2p")
 		fmt.Println()
-		fmt.Println("Usage: Run './chat in two different terminals. Let them connect to the bootstrap nodes, announce themselves and connect to the peers")
+		fmt.Println("Usage: Run './p2p-rag in two different terminals. Let them connect to the bootstrap nodes, announce themselves and connect to the peers")
 		flag.PrintDefaults()
 		return
 	}
@@ -102,7 +102,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	logger.Info("Host created. We are:", host.ID())
+	logger.Info("Host created. We are: ", host.ID())
 	logger.Info(host.Addrs())
 
 	// Set a function as stream handler. This function is called when a peer
@@ -136,10 +136,9 @@ func main() {
 
 	// We use a rendezvous point "meet me here" to announce our location.
 	// This is like telling your friends to meet you at the Eiffel Tower.
-	logger.Info("Announcing ourselves...")
+	logger.Info("Announcing ourselves with rendezvous ", config.RendezvousString)
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
-	logger.Debug("Successfully announced!")
 
 	// Now, look for others who have announced
 	// This is like your friend telling you the location to meet you.
@@ -153,13 +152,11 @@ func main() {
 		if peer.ID == host.ID() {
 			continue
 		}
-		logger.Debug("Found peer:", peer)
-
-		logger.Debug("Connecting to:", peer)
+		logger.Debug("Connecting to: ", peer)
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
 
 		if err != nil {
-			logger.Warning("Connection failed:", err)
+			logger.Warn("Connection failed: ", err)
 			continue
 		} else {
 			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
@@ -168,7 +165,7 @@ func main() {
 			go readData(rw)
 		}
 
-		logger.Info("Connected to:", peer)
+		logger.Info("Connected to: ", peer)
 	}
 
 	select {}
