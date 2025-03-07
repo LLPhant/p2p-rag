@@ -134,7 +134,7 @@ func main() {
 	// Wait a bit to let bootstrapping finish (really bootstrap should block until it's ready, but that isn't the case yet.)
 	time.Sleep(1 * time.Second)
 
-	// We use a rendezvous point "meet me here" to announce our location.
+	// We use a rendezvous point `config.RendezvousString` to announce our location.
 	// This is like telling your friends to meet you at the Eiffel Tower.
 	logger.Info("Announcing ourselves with rendezvous ", config.RendezvousString)
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
