@@ -21,7 +21,9 @@ import (
 	"github.com/ipfs/go-log/v2"
 )
 
-var logger = log.Logger("rendezvous")
+const systemName = "rendezvous"
+
+var logger = log.Logger(systemName)
 
 func handleStream(stream network.Stream) {
 	logger.Info("Got a new stream!")
@@ -81,7 +83,7 @@ func writeData(rw *bufio.ReadWriter) {
 
 func main() {
 	log.SetAllLoggers(log.LevelError)
-	log.SetLogLevel("rendezvous", "info")
+	log.SetLogLevel(systemName, "info")
 	help := flag.Bool("h", false, "Display Help")
 	config, err := ParseFlags()
 	if err != nil {
