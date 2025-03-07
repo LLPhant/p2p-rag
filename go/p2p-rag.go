@@ -80,7 +80,7 @@ func writeData(rw *bufio.ReadWriter) {
 }
 
 func main() {
-	log.SetAllLoggers(log.LevelWarn)
+	log.SetAllLoggers(log.LevelError)
 	log.SetLogLevel("rendezvous", "info")
 	help := flag.Bool("h", false, "Display Help")
 	config, err := ParseFlags()
@@ -142,17 +142,18 @@ func main() {
 
 	// Now, look for others who have announced
 	// This is like your friend telling you the location to meet you.
-	logger.Debug("Searching for other peers...")
+	logger.Info("Searching for other peers...")
 	peerChan, err := routingDiscovery.FindPeers(ctx, config.RendezvousString)
 	if err != nil {
 		panic(err)
 	}
 
 	for peer := range peerChan {
-		if peer.ID == host.ID() {
+		if peer.ID.String() == host.ID().String() || len(peer.Addrs) == 0 || hasIntersection(peer.Addrs, host.Addrs()) {
 			continue
 		}
-		logger.Debug("Connecting to: ", peer)
+
+		logger.Info("Connecting to: ", peer.ID, peer.Addrs)
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
 
 		if err != nil {
