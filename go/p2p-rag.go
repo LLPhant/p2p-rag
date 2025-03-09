@@ -94,6 +94,8 @@ func main() {
 		fmt.Println("This program demonstrates a simple p2p chat application using libp2p")
 		fmt.Println()
 		fmt.Println("Usage: Run './p2p-rag in two different terminals. Let them connect to the bootstrap nodes, announce themselves and connect to the peers")
+		fmt.Println("Example for listening on all local IP addresses on a random TCP port:")
+		fmt.Println("./p2p-rag -listen /ip4/0.0.0.0/tcp/0 ")
 		flag.PrintDefaults()
 		return
 	}
