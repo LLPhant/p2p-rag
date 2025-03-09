@@ -15,6 +15,8 @@ import (
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
+
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
 
@@ -96,13 +98,25 @@ func main() {
 		fmt.Println("Usage: Run './p2p-rag in two different terminals. Let them connect to the bootstrap nodes, announce themselves and connect to the peers")
 		fmt.Println("Example for listening on all local IP addresses on a random TCP port:")
 		fmt.Println("./p2p-rag -listen /ip4/0.0.0.0/tcp/0 ")
+		fmt.Println("You can also pass a base64 private key using the -key flag, otherwise a new Ed25519 key will be created and printed.")
+		fmt.Println("./p2p-rag -listen /ip4/0.0.0.0/tcp/0 -key CAESQJ...")
 		flag.PrintDefaults()
 		return
 	}
 
 	// libp2p.New constructs a new libp2p Host. Other options can be added
 	// here.
-	host, err := libp2p.New(libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...))
+	privateKey, err := getPrivateKey(config.PrivateKey)
+	if err != nil {
+		panic(err)
+	}
+
+	opts := []libp2p.Option{
+		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
+		libp2p.Identity(privateKey),
+	}
+
+	host, err := libp2p.New(opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -174,4 +188,31 @@ func main() {
 	}
 
 	select {}
+}
+
+func getPrivateKey(base64PrivateKey string) (p2pcrypto.PrivKey, error) {
+	if base64PrivateKey == "" {
+		return newPrivateKey()
+	}
+	return privateKeyFrom(base64PrivateKey)
+}
+
+func privateKeyFrom(base64PrivateKey string) (p2pcrypto.PrivKey, error) {
+	privateKeyAsBytes, err := p2pcrypto.ConfigDecodeKey(base64PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return p2pcrypto.UnmarshalPrivateKey(privateKeyAsBytes)
+}
+
+func newPrivateKey() (p2pcrypto.PrivKey, error) {
+	privateKey, _, err := p2pcrypto.GenerateKeyPair(p2pcrypto.Ed25519, 0)
+	if err == nil {
+		privateKeyAsBytes, err1 := p2pcrypto.MarshalPrivateKey(privateKey)
+		if err1 != nil {
+			panic(err1)
+		}
+		fmt.Println(p2pcrypto.ConfigEncodeKey(privateKeyAsBytes))
+	}
+	return privateKey, err
 }
