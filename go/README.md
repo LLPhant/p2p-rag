@@ -1,7 +1,14 @@
 # p2p chat app with libp2p [with peer discovery]
 (Source code adapted from a libp2p [examples](https://github.com/libp2p/go-libp2p/tree/master/examples/chat-with-rendezvous))
 
-This program demonstrates a simple p2p chat application. You will learn how to discover a peer in the network (using kad-dht), connect to it and open a chat stream.
+This program demonstrates a simple p2p chat application. 
+You will learn how to discover a peer in the network (using kad-dht), connect to it and open a chat stream.
+
+To recap the current example:
+1. uses ipfs bootstrap nodes to connect to the p2p network
+2. identifies itself using an Ed25519 key
+3. looks for other nodes that can handle a brand new "/p2p-rag/0.0.0" protocol
+4. "chats" with the discovered nodes.
 
 You need go 1.24 for building this program. You can install it directly on your machine, or use it via docker:
 ```bash
