@@ -3,6 +3,11 @@
 
 This program demonstrates a simple p2p chat application. You will learn how to discover a peer in the network (using kad-dht), connect to it and open a chat stream.
 
+You need go 1.24 for building this program. You can install it directly on your machine, or use it via docker:
+```bash
+docker run --rm -it -v $PWD:/app -w /app golang:1.24.1 bash
+```
+
 ## Build
 
 From the `go` directory (i.e. the directory containing this file) run the following:
