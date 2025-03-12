@@ -123,6 +123,7 @@ func main() {
 				continue
 			}
 
+			// We do not want to connect again to the same peer
 			if host.Network().Connectedness(peer.ID) != network.Connected {
 				logger.Info("Connecting to: ", peer.ID, peer.Addrs)
 				stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
