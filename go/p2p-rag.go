@@ -27,66 +27,11 @@ const systemName = "rendezvous"
 
 var logger = log.Logger(systemName)
 
-func handleStream(stream network.Stream) {
-	logger.Info("Got a new stream!")
-
-	// Create a buffer stream for non-blocking read and write.
-	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-	go readData(rw)
-	go writeData(rw)
-
-	// 'stream' will stay open until you close it (or the other side closes it).
-}
-
-func readData(rw *bufio.ReadWriter) {
-	for {
-		str, err := rw.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from buffer")
-			panic(err)
-		}
-
-		if str == "" {
-			return
-		}
-		if str != "\n" {
-			// Green console colour: 	\x1b[32m
-			// Reset console colour: 	\x1b[0m
-			fmt.Printf("\x1b[32m%s\x1b[0m> ", str)
-		}
-
-	}
-}
-
-func writeData(rw *bufio.ReadWriter) {
-	stdReader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		sendData, err := stdReader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from stdin")
-			panic(err)
-		}
-
-		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
-		if err != nil {
-			fmt.Println("Error writing to buffer")
-			panic(err)
-		}
-		err = rw.Flush()
-		if err != nil {
-			fmt.Println("Error flushing buffer")
-			panic(err)
-		}
-	}
-}
-
 func main() {
 	log.SetAllLoggers(log.LevelError)
 	log.SetLogLevel(systemName, "info")
 	help := flag.Bool("h", false, "Display Help")
+	printKey := flag.Bool("pk", false, "Prints a new private key")
 	config, err := ParseFlags()
 	if err != nil {
 		panic(err)
@@ -101,6 +46,11 @@ func main() {
 		fmt.Println("You can also pass a base64 private key using the -key flag, otherwise a new Ed25519 key will be created and printed.")
 		fmt.Println("./p2p-rag -listen /ip4/0.0.0.0/tcp/0 -key CAESQJ...")
 		flag.PrintDefaults()
+		return
+	}
+
+	if *printKey {
+		newPrivateKey()
 		return
 	}
 
@@ -158,36 +108,99 @@ func main() {
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
 
-	// Now, look for others who have announced
-	// This is like your friend telling you the location to meet you.
-	logger.Info("Searching for other peers...")
-	peerChan, err := routingDiscovery.FindPeers(ctx, config.RendezvousString)
-	if err != nil {
-		panic(err)
-	}
-
-	for peer := range peerChan {
-		if peer.ID.String() == host.ID().String() || len(peer.Addrs) == 0 || hasIntersection(peer.Addrs, host.Addrs()) {
-			continue
-		}
-
-		logger.Info("Connecting to: ", peer.ID, peer.Addrs)
-		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
-
+	for {
+		// Now, look for others who have announced
+		// This is like your friend telling you the location to meet you.
+		logger.Info("Searching for other peers...")
+		// Wait again...
+		time.Sleep(2 * time.Second)
+		peerChan, err := routingDiscovery.FindPeers(ctx, config.RendezvousString)
 		if err != nil {
-			logger.Warn("Connection failed: ", err)
-			continue
-		} else {
-			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+			panic(err)
+		}
+		for peer := range peerChan {
+			if peer.ID.String() == host.ID().String() || len(peer.Addrs) == 0 || hasIntersection(peer.Addrs, host.Addrs()) {
+				continue
+			}
 
-			go writeData(rw)
-			go readData(rw)
+			if host.Network().Connectedness(peer.ID) != network.Connected {
+				logger.Info("Connecting to: ", peer.ID, peer.Addrs)
+				stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
+
+				if err != nil {
+					logger.Warn("Connection failed: ", err)
+					continue
+				} else {
+					rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+
+					go writeData(rw)
+					go readData(rw)
+				}
+
+				logger.Info("*** 🥳 Connected to: ", peer)
+			}
 		}
 
-		logger.Info("Connected to: ", peer)
+		logger.Warn("No more peers 😢- Trying again")
+		// Wait again...
+		time.Sleep(5 * time.Second)
 	}
+}
 
-	select {}
+func handleStream(stream network.Stream) {
+	logger.Info("*** 🥳 Got a new stream!")
+
+	// Create a buffer stream for non-blocking read and write.
+	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+
+	go readData(rw)
+	go writeData(rw)
+
+	// 'stream' will stay open until you close it (or the other side closes it).
+}
+
+func readData(rw *bufio.ReadWriter) {
+	for {
+		str, err := rw.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading from buffer")
+			panic(err)
+		}
+
+		if str == "" {
+			return
+		}
+		if str != "\n" {
+			// Green console colour: 	\x1b[32m
+			// Reset console colour: 	\x1b[0m
+			fmt.Printf("\x1b[32m%s\x1b[0m> ", str)
+		}
+
+	}
+}
+
+func writeData(rw *bufio.ReadWriter) {
+	stdReader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Print("> ")
+		sendData, err := stdReader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading from stdin")
+			panic(err)
+		}
+
+		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
+		if err != nil {
+			fmt.Println("Error writing to buffer")
+			panic(err)
+		}
+		err = rw.Flush()
+		if err != nil {
+			fmt.Println("Error flushing buffer")
+			panic(err)
+		}
+	}
 }
 
 func getPrivateKey(base64PrivateKey string) (p2pcrypto.PrivKey, error) {

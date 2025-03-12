@@ -28,9 +28,21 @@ From the `go` directory (i.e. the directory containing this file) run the follow
 Use two different terminal windows to run
 
 ```
-./p2p-rag -listen /ip4/127.0.0.1/tcp/6666
-./p2p-rag -listen /ip4/127.0.0.1/tcp/6668
+./p2p-rag -listen /ip4/127.0.0.1/tcp/6666 -rendezvous someString
+./p2p-rag -listen /ip4/127.0.0.1/tcp/6668 -rendezvous someString
 ```
+
+It would be better if each session uses its own private key each time:
+```
+./p2p-rag -listen /ip4/127.0.0.1/tcp/6666 -rendezvous someString -key CAESQBEx8bKxlGKCzcfxsR94EEqCE+8bBm/fBaAXOBEkXiU9uGjKXsoDUJJuGugLJFVvbwvbqeZzP0IR23M45C0mkRY=
+./p2p-rag -listen /ip4/127.0.0.1/tcp/6668 -rendezvous someString -key CAESQHKQORG8iqd0O3fHj16d4KPA4Y2NhaVzEafylicBx92b2UqHPw4Zjss+BymIX4oqkSzfqQHYwVVtE6fNSLwstlY=
+```
+
+To obtain a new private key run:
+```
+./p2p-rag -pk
+```
+
 ## So how does it work?
 
 1. **Configure a p2p host**
@@ -46,7 +58,7 @@ host, err := libp2p.New()
 This function is called on the local peer when a remote peer initiates a connection and starts a stream with the local peer.
 ```go
 // Set a function as stream handler.
-host.SetStreamHandler("/chat/1.1.0", handleStream)
+host.SetStreamHandler("/p2p-rag/0.0.0", handleStream)
 ```
 
 ```handleStream``` is executed for each new incoming stream to the local peer. ```stream``` is used to exchange data between the local and remote peers. This example uses non blocking functions for reading and writing from this stream.
