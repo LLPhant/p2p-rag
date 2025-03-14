@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"strings"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -14,17 +15,16 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
-
 	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
-
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
-
 	"github.com/ipfs/go-log/v2"
 )
 
 const systemName = "rendezvous"
 
+var knownTopics = make(map[string]struct{})
 var logger = log.Logger(systemName)
 
 func main() {
@@ -62,6 +62,8 @@ func main() {
 	}
 
 	opts := []libp2p.Option{
+		libp2p.NATPortMap(),
+		libp2p.EnableHolePunching(),
 		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
 		libp2p.Identity(privateKey),
 	}
@@ -107,6 +109,31 @@ func main() {
 	logger.Info("Announcing ourselves with rendezvous ", config.RendezvousString)
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
+
+	ps, err := pubsub.NewGossipSub(ctx, host)
+	if err != nil {
+		panic(err)
+	}
+
+	topic, err := ps.Join("/rag-topics")
+	if err != nil {
+		panic(err)
+	}
+	subscription, err := topic.Subscribe()
+	if err != nil {
+		panic(err)
+	}
+
+	// Start listening for incoming topic gossip
+	go listenForGossip(subscription)
+
+	// Periodically gossip local topics
+	go func() {
+		for {
+			gossipTopics(topic)
+			time.Sleep(10 * time.Second) // Adjust based on network size
+		}
+	}()
 
 	for {
 		// Now, look for others who have announced
@@ -160,12 +187,43 @@ func handleStream(stream network.Stream) {
 	// 'stream' will stay open until you close it (or the other side closes it).
 }
 
+// 🟢 Function to send our known topics to the gossip network
+func gossipTopics(topic *pubsub.Topic) {
+	myTopics := strings.Split(os.Getenv("RAG_TOPICS"), ",")
+	message := strings.Join(myTopics, ",")
+	err := topic.Publish(context.Background(), []byte(message))
+	if err != nil {
+		logger.Warn("❌ Error publishing topics:", err)
+	}
+	logger.Info("📡 Gossiped topics:", message)
+}
+
+// 🟢 Function to listen for gossip messages from peers
+func listenForGossip(sub *pubsub.Subscription) {
+	for {
+		msg, err := sub.Next(context.Background())
+		if err != nil {
+			logger.Warn("❌ Error receiving gossip:", err)
+			continue
+		}
+
+		// Extract and store topics
+		receivedTopics := strings.Split(string(msg.Data), ",")
+		for _, topic := range receivedTopics {
+			if _, exists := knownTopics[topic]; !exists {
+				knownTopics[topic] = struct{}{}
+				logger.Info("🔍 Learned about new topic:", topic)
+			}
+		}
+	}
+}
+
 func readData(rw *bufio.ReadWriter) {
 	for {
 		str, err := rw.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading from buffer")
-			panic(err)
+			break
 		}
 
 		if str == "" {
